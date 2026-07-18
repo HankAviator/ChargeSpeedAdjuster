@@ -17,14 +17,20 @@ directory.
 4. The source manifest, build identity, converter, and patcher are hashed.
 5. Changed sources are decrypted, schema-validated, patched, encrypted, and
    decrypted again to prove an exact crypto round trip.
-6. The complete validated output directory is bind-mounted over
-   `/data/vendor/thermal/config` before Xiaomi starts `mi_thermald` on the
-   Android `boot` trigger. This works whether Xiaomi's real directory is empty
-   or already populated.
+6. During installation, the validated files are staged under
+   `system/vendor/etc`, reproducing v4.2's Magisk vendor-overlay coverage.
+7. During early boot, the overlay backing files are refreshed in place and the
+   complete validated output directory is bind-mounted over
+   `/data/vendor/thermal/config`. After Kitsune establishes its magic mounts, a
+   late read-only check verifies every generated file byte-for-byte at
+   `/vendor/etc`. This works whether Xiaomi's real writable profile directory
+   is empty or already populated.
 
-If generation or validation fails, no generated profiles are mounted. The OS
-therefore uses its current files unchanged. Bind mounts disappear on reboot,
-so disabling or removing the module restores the real files automatically.
+If generation or early vendor-backing refresh fails, the writable profile
+directory is not mounted. The late visible-overlay audit records any mismatch
+in `runtime/vendor-overlay.log`. Magisk overlays and bind mounts disappear on
+reboot, so disabling or removing the module restores the real files
+automatically.
 
 On a phone previously modified by v4.2, the real `/data` files may already
 contain v4.2's permanent copies. This redesign never writes another restoration
@@ -60,6 +66,7 @@ The generated audit files are stored under the module's `runtime` directory:
 - `source.signature`: cache identity for the complete current source set
 - `patch-manifest.txt`: every patched or unchanged file and section
 - `generator.log`: generation and mount decisions
+- `vendor-overlay.log`: late byte-for-byte verification of `/vendor/etc`
 
 The legacy `thermal-bat` binary is used only as a development reference. It is
 not run by the module and is removed from the installed module during
@@ -83,9 +90,9 @@ created directories.
 ## Publishing a release
 
 1. Set `version=` in `module.prop` to the intended release tag, for example
-   `version=v4.4`, and commit the change.
-2. Create and push the matching tag: `git tag v4.4` followed by
-   `git push origin v4.4`.
+   `version=v4.5`, and commit the change.
+2. Create and push the matching tag: `git tag v4.5` followed by
+   `git push origin v4.5`.
 
 The release workflow builds a minimal Magisk-installable ZIP, verifies its
 contents, creates a SHA-256 checksum, and publishes both files in a GitHub

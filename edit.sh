@@ -17,7 +17,8 @@ MANIFEST_FILE="$RUNTIME/patch-manifest.txt"
 SOURCE_MANIFEST_FILE="$RUNTIME/source-manifest.txt"
 LOG_FILE="$RUNTIME/generator.log"
 DATA_CONFIG=/data/vendor/thermal/config
-PATCH_VERSION=4
+VENDOR_OVERLAY="$MODDIR/system/vendor/etc"
+PATCH_VERSION=5
 MOUNTED_STOCK=""
 BOUND_TARGETS=""
 TMPDIR=""
@@ -307,6 +308,79 @@ generate_profiles() {
     done
 }
 
+stage_vendor_profiles() {
+    mkdir -p "$VENDOR_OVERLAY" || return 1
+
+    # Installation runs before Magisk constructs the next boot's overlay, so
+    # replace the staged set atomically at the directory level. This never
+    # writes to the real /vendor partition.
+    rm -rf "$MODDIR/system/vendor/etc.new" "$MODDIR/system/vendor/etc.old"
+    mkdir -p "$MODDIR/system/vendor/etc.new" || return 1
+
+    staged=0
+    for source in "$GENERATED"/thermal-*.conf; do
+        [ -f "$source" ] || continue
+        cp -f "$source" "$MODDIR/system/vendor/etc.new/${source##*/}" || return 1
+        staged=$((staged + 1))
+    done
+    [ "$staged" -gt 0 ] || {
+        fail "no generated profiles are available for the vendor overlay"
+        return 1
+    }
+
+    if [ -d "$VENDOR_OVERLAY" ]; then
+        mv "$VENDOR_OVERLAY" "$MODDIR/system/vendor/etc.old" || return 1
+    fi
+    if ! mv "$MODDIR/system/vendor/etc.new" "$VENDOR_OVERLAY"; then
+        [ ! -d "$MODDIR/system/vendor/etc.old" ] || \
+            mv "$MODDIR/system/vendor/etc.old" "$VENDOR_OVERLAY"
+        return 1
+    fi
+    rm -rf "$MODDIR/system/vendor/etc.old"
+
+    chmod 755 "$MODDIR/system" "$MODDIR/system/vendor" "$VENDOR_OVERLAY"
+    chmod 644 "$VENDOR_OVERLAY"/thermal-*.conf
+    chown 0:0 "$MODDIR/system" "$MODDIR/system/vendor" "$VENDOR_OVERLAY" \
+        "$VENDOR_OVERLAY"/thermal-*.conf
+    log "staged $staged validated profiles for Magisk's /vendor/etc overlay"
+}
+
+sync_vendor_profiles() {
+    [ -d "$VENDOR_OVERLAY" ] || {
+        fail "the staged /vendor/etc overlay is missing; reinstall the module"
+        return 1
+    }
+
+    expected=0
+    for source in "$GENERATED"/thermal-*.conf; do
+        [ -f "$source" ] || continue
+        filename=${source##*/}
+        backing="$VENDOR_OVERLAY/$filename"
+        # The backing file must pre-exist so Magisk can expose the path later
+        # in this boot. Kitsune applies magic mounts after module post-fs-data
+        # scripts, so verification of /vendor/etc belongs in service.sh.
+        [ -f "$backing" ] || {
+            fail "new vendor overlay path requires another module installation: $filename"
+            return 1
+        }
+        cat "$source" > "$backing" || {
+            fail "cannot refresh vendor overlay backing file: $filename"
+            return 1
+        }
+        cmp -s "$source" "$backing" || {
+            fail "vendor overlay backing mismatch: $filename"
+            return 1
+        }
+        expected=$((expected + 1))
+    done
+
+    [ "$expected" -gt 0 ] || {
+        fail "no generated vendor profiles were synchronized"
+        return 1
+    }
+    log "refreshed $expected staged profiles before Magisk's /vendor/etc overlay"
+}
+
 bind_profiles() {
     boot_id=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)
     if [ -n "$boot_id" ] && [ -f "$RUNTIME/mounted.boot-id" ] && \
@@ -400,7 +474,18 @@ else
     fi
 fi
 
+if [ "$MODE" = generate ]; then
+    if ! stage_vendor_profiles; then
+        log "vendor overlay staging failed"
+        exit 1
+    fi
+fi
+
 if [ "$MODE" = boot ]; then
+    if ! sync_vendor_profiles; then
+        log "vendor overlay refresh failed; leaving /data unmounted"
+        exit 1
+    fi
     if ! bind_profiles; then
         log "mounting failed; leaving current stock files unmounted"
         exit 1

@@ -68,6 +68,7 @@ jobs:
             miui-thermal \
             patch-thermal.sh \
             post-fs-data.sh \
+            service.sh \
             uninstall.sh \
             "${package_dir}/"
 
@@ -99,6 +100,7 @@ jobs:
             miui-thermal \
             patch-thermal.sh \
             post-fs-data.sh \
+            service.sh \
             uninstall.sh; do
             unzip -Z1 "${archive}" | grep -Fxq "${required}"
           done

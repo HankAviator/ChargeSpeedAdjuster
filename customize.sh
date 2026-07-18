@@ -20,7 +20,7 @@ fi
 
 ui_print "- Installing the current-stock thermal profile generator"
 ui_print "- Stock and /data files will not be overwritten"
-ui_print "- Immutable profiles will be validated and directory-mounted during early boot"
+ui_print "- Generated profiles will overlay /vendor/etc and mount over Xiaomi's /data cache"
 ui_print "- An empty Xiaomi writable profile directory is supported"
 ui_print "- An OS/profile change will force regeneration from the new sources"
 
@@ -28,8 +28,7 @@ ui_print "- An OS/profile change will force regeneration from the new sources"
 # Magisk is staging an update of ChargeSA itself.
 rm -rf /data/adb/modules/HeZheng
 
-# A previous v4.2 installation may have generated a conventional system
-# overlay inside the staged module. The redesigned module uses bind mounts only.
+# Rebuild any previous conventional overlay from the current immutable stock.
 rm -rf "$MODPATH/system"
 rm -rf "$MODPATH/runtime"
 rm -f "$MODPATH/thermal-bat"
@@ -38,6 +37,7 @@ chmod 755 \
     "$MODPATH/edit.sh" \
     "$MODPATH/patch-thermal.sh" \
     "$MODPATH/post-fs-data.sh" \
+    "$MODPATH/service.sh" \
     "$MODPATH/uninstall.sh" \
     "$MODPATH/miui-thermal"
 
@@ -47,5 +47,5 @@ if ! sh "$MODPATH/edit.sh" generate; then
     abort "Failed to generate validated thermal profiles from current stock."
 fi
 
-ui_print "- Profile generation and crypto round-trip validation succeeded"
-ui_print "- Reboot to apply the reversible thermal profile directory mount"
+ui_print "- Profile generation, vendor-overlay staging, and crypto validation succeeded"
+ui_print "- Reboot to apply the reversible vendor overlay and data-directory mount"

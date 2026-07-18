@@ -1,5 +1,5 @@
 #!/system/bin/sh
 
-# Generated profiles are bind mounts and disappear automatically on reboot.
-# Never delete or restore files in /data/vendor/thermal/config here.
-echo "ChargeSpeedAdjuster: reboot to remove the temporary thermal profile mounts."
+# Generated profiles are Magisk overlays or bind mounts and disappear on reboot.
+# Never delete or restore files in /vendor or /data/vendor/thermal/config here.
+echo "ChargeSpeedAdjuster: reboot to remove the thermal overlays and mounts."

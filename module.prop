@@ -1,6 +1,6 @@
 id=ChargeSA
 name=ChargeSpeedAdjuster
-version=v4.4
-versionCode=260720
+version=v4.5
+versionCode=260721
 author=HankAviator, Misifu
-description=Reproduce v4.2 charging thermal behavior from current stock using reversible mounts
+description=Reproduce v4.2 thermal behavior with reversible vendor and data overlays
