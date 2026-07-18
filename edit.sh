@@ -17,7 +17,7 @@ MANIFEST_FILE="$RUNTIME/patch-manifest.txt"
 SOURCE_MANIFEST_FILE="$RUNTIME/source-manifest.txt"
 LOG_FILE="$RUNTIME/generator.log"
 DATA_CONFIG=/data/vendor/thermal/config
-PATCH_VERSION=2
+PATCH_VERSION=3
 MOUNTED_STOCK=""
 BOUND_TARGETS=""
 TMPDIR=""
@@ -101,14 +101,6 @@ select_clean_source() {
         return 0
     fi
 
-    # A data-only profile has no immutable counterpart. It is still a current
-    # device source, not a module backup, so it may be used as a last resort.
-    if [ -f "$DATA_CONFIG/$filename" ]; then
-        SELECTED_LAYER=data
-        SELECTED_SOURCE="$DATA_CONFIG/$filename"
-        return 0
-    fi
-
     return 1
 }
 
@@ -130,28 +122,48 @@ prepare_sources() {
     system_count=$(find "$STOCK_SYSTEM/etc" -maxdepth 1 -type f -name 'thermal-*.conf' 2>/dev/null | wc -l)
     log "clean immutable sources: odm=$odm_count vendor=$vendor_count system=$system_count"
 
+    : > "$TMPDIR/candidates.txt"
+    for source_dir in "$STOCK_ODM/etc" "$STOCK_VENDOR/etc" "$STOCK_SYSTEM/etc"; do
+        [ -d "$source_dir" ] || continue
+        for source in "$source_dir"/thermal-*.conf; do
+            [ -f "$source" ] || continue
+            echo "${source##*/}" >> "$TMPDIR/candidates.txt"
+        done
+    done
+    sort -u -o "$TMPDIR/candidates.txt" "$TMPDIR/candidates.txt"
+
     : > "$TMPDIR/source-manifest.txt"
     source_count=0
+    skipped_plain=0
 
-    for target in "$DATA_CONFIG"/thermal-*.conf; do
-        [ -f "$target" ] || continue
-        filename=${target##*/}
-
+    while IFS= read -r filename; do
+        [ -n "$filename" ] || continue
         if ! select_clean_source "$filename"; then
-            fail "no current source was found for $filename"
+            fail "immutable source disappeared for $filename"
             return 1
+        fi
+
+        # Xiaomi's encrypted profiles are non-empty AES block sequences. The
+        # same directories also contain plaintext control files such as
+        # thermal-chg-only.conf and thermal-engine.conf; leave those untouched.
+        source_size=$(stat -c '%s' "$SELECTED_SOURCE" 2>/dev/null) || return 1
+        if [ "$source_size" -le 0 ] || [ $((source_size % 16)) -ne 0 ]; then
+            log "skipping plaintext control file: $SELECTED_LAYER/$filename"
+            skipped_plain=$((skipped_plain + 1))
+            continue
         fi
 
         cp -f "$SELECTED_SOURCE" "$TMPDIR/origin_en/$filename" || return 1
         digest=$(sha256sum "$SELECTED_SOURCE" | awk '{print $1}') || return 1
         echo "$filename|$SELECTED_LAYER|$digest" >> "$TMPDIR/source-manifest.txt"
         source_count=$((source_count + 1))
-    done
+    done < "$TMPDIR/candidates.txt"
 
     [ "$source_count" -gt 0 ] || {
-        fail "no live Xiaomi thermal profiles were found"
+        fail "no encrypted immutable Xiaomi thermal profiles were found"
         return 1
     }
+    log "selected $source_count encrypted profiles; skipped $skipped_plain plaintext controls"
 
     sort -o "$TMPDIR/source-manifest.txt" "$TMPDIR/source-manifest.txt"
 
@@ -283,11 +295,13 @@ generate_profiles() {
     cp -f "$TMPDIR/source-manifest.txt" "$SOURCE_MANIFEST_FILE.new" || return 1
     mv -f "$SOURCE_MANIFEST_FILE.new" "$SOURCE_MANIFEST_FILE" || return 1
 
-    chmod 700 "$RUNTIME" "$GENERATED"
+    chmod 700 "$RUNTIME"
+    chmod 771 "$GENERATED"
     chmod 600 "$SIGNATURE_FILE" "$MANIFEST_FILE" "$SOURCE_MANIFEST_FILE"
     chmod 644 "$GENERATED"/thermal-*.conf
+    chown 0:1000 "$GENERATED" "$GENERATED"/thermal-*.conf
     log "generated and verified $verified profiles from current device sources"
-    for layer in odm vendor system data; do
+    for layer in odm vendor system; do
         count=$(awk -F '|' -v wanted="$layer" '$2 == wanted { count++ } END { print count + 0 }' "$SOURCE_MANIFEST_FILE")
         [ "$count" -eq 0 ] || log "source layer $layer: $count profiles"
     done
@@ -297,70 +311,69 @@ bind_profiles() {
     boot_id=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)
     if [ -n "$boot_id" ] && [ -f "$RUNTIME/mounted.boot-id" ] && \
         [ "$(cat "$RUNTIME/mounted.boot-id")" = "$boot_id" ]; then
-        expected=0
-        mounted=0
-        for source in "$GENERATED"/thermal-*.conf; do
-            [ -f "$source" ] || continue
-            expected=$((expected + 1))
-            target="$DATA_CONFIG/${source##*/}"
-            if awk -v wanted="$target" '$2 == wanted { found=1 } END { exit !found }' /proc/mounts; then
-                mounted=$((mounted + 1))
-            fi
-        done
-        if [ "$expected" -gt 0 ] && [ "$mounted" -eq "$expected" ]; then
-            log "verified $mounted profiles already mounted for this boot"
+        if awk -v wanted="$DATA_CONFIG" '$2 == wanted { found=1 } END { exit !found }' /proc/mounts; then
+            log "verified generated profile directory already mounted for this boot"
             return 0
         fi
-        fail "mount marker is inconsistent: expected $expected profiles, found $mounted"
+        fail "mount marker exists but the generated profile directory is not mounted"
         return 1
     fi
 
-    mounted=0
+    [ -d "$DATA_CONFIG" ] || {
+        fail "thermal profile directory disappeared: $DATA_CONFIG"
+        return 1
+    }
+
+    if awk -v wanted="$DATA_CONFIG" '$2 == wanted { found=1 } END { exit !found }' /proc/mounts; then
+        fail "refusing to cover an existing mount at $DATA_CONFIG"
+        return 1
+    fi
+
+    profile_count=0
     for source in "$GENERATED"/thermal-*.conf; do
         [ -f "$source" ] || continue
-        filename=${source##*/}
-        target="$DATA_CONFIG/$filename"
-        [ -f "$target" ] || {
-            fail "bind target disappeared: $target"
-            return 1
-        }
+        profile_count=$((profile_count + 1))
+    done
+    [ "$profile_count" -gt 0 ] || {
+        fail "no generated profiles are available to mount"
+        return 1
+    }
 
-        if awk -v wanted="$target" '$2 == wanted { found=1 } END { exit !found }' /proc/mounts; then
-            fail "refusing to cover an existing mount at $target"
-            return 1
-        fi
+    mount -o bind "$GENERATED" "$DATA_CONFIG" || {
+        fail "cannot bind generated profiles over $DATA_CONFIG"
+        return 1
+    }
+    BOUND_TARGETS="$DATA_CONFIG"
 
-        mount -o bind "$source" "$target" || {
-            fail "cannot bind $source over $target"
-            return 1
-        }
-        BOUND_TARGETS="$target $BOUND_TARGETS"
-
-        # Label through the data-side mountpoint. This works even when the
-        # module directory itself does not permit setting the vendor label.
+    # Label through the data-side mountpoint. This changes only the generated
+    # cache in the module, never Xiaomi's real directory or immutable sources.
+    chcon u:object_r:thermal_data_file:s0 "$DATA_CONFIG" >/dev/null 2>&1 || {
+        fail "cannot label the mounted profile directory"
+        return 1
+    }
+    for target in "$DATA_CONFIG"/thermal-*.conf; do
+        [ -f "$target" ] || continue
         chcon u:object_r:thermal_data_file:s0 "$target" >/dev/null 2>&1 || {
-            fail "cannot label the mounted profile at $target"
+            fail "cannot label mounted profile ${target##*/}"
             return 1
         }
         context=$(ls -Z "$target" 2>/dev/null)
         case "$context" in
             *:thermal_data_file:*) ;;
-            *) fail "unexpected SELinux label after mounting $target"; return 1 ;;
+            *) fail "unexpected SELinux label on ${target##*/}"; return 1 ;;
         esac
-
-        mounted=$((mounted + 1))
     done
-
-    [ "$mounted" -gt 0 ] || {
-        fail "no generated profiles were mounted"
-        return 1
-    }
+    directory_context=$(ls -Zd "$DATA_CONFIG" 2>/dev/null)
+    case "$directory_context" in
+        *:thermal_data_file:*) ;;
+        *) fail "unexpected SELinux label on mounted profile directory"; return 1 ;;
+    esac
 
     # The mounts are now committed; cleanup must not undo them.
     BOUND_TARGETS=""
     echo "$boot_id" > "$RUNTIME/mounted.boot-id"
     chmod 600 "$RUNTIME/mounted.boot-id"
-    log "bind-mounted $mounted validated profiles before thermal service startup"
+    log "bind-mounted directory containing $profile_count validated profiles before thermal service startup"
 }
 
 case "$MODE" in

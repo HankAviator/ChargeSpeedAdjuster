@@ -20,7 +20,8 @@ fi
 
 ui_print "- Installing the current-stock thermal profile generator"
 ui_print "- Stock and /data files will not be overwritten"
-ui_print "- Generated profiles will be validated and bind-mounted during early boot"
+ui_print "- Immutable profiles will be validated and directory-mounted during early boot"
+ui_print "- An empty Xiaomi writable profile directory is supported"
 ui_print "- An OS/profile change will force regeneration from the new sources"
 
 # Remove only obsolete modules with different IDs. Never delete ChargeSA while
@@ -47,4 +48,4 @@ if ! sh "$MODPATH/edit.sh" generate; then
 fi
 
 ui_print "- Profile generation and crypto round-trip validation succeeded"
-ui_print "- Reboot to apply reversible thermal profile mounts"
+ui_print "- Reboot to apply the reversible thermal profile directory mount"

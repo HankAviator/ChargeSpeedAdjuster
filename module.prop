@@ -1,6 +1,6 @@
 id=ChargeSA
 name=ChargeSpeedAdjuster
-version=v4.3
-versionCode=260718
+version=v4.3.1
+versionCode=260719
 author=HankAviator, Misifu
 description=Generate validated charging thermal profiles from current stock and apply them with reversible mounts

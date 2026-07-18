@@ -10,21 +10,23 @@ directory.
 1. Magisk runs `post-fs-data.sh` after `/data` is available.
 2. `edit.sh` mounts the immutable vendor, ODM, and root block devices read-only,
    bypassing all active Magisk overlays.
-3. For every live profile in `/data/vendor/thermal/config`, the generator picks
-   the same-named immutable source (ODM, then vendor, then system). A genuinely
-   data-only profile is used only when no immutable source exists.
+3. The generator inventories current immutable `thermal-*.conf` sources using
+   ODM, vendor, then system precedence. AES block candidates must pass strict
+   decryption and exact re-encryption; adjacent plaintext control files remain
+   untouched.
 4. The source manifest, build identity, converter, and patcher are hashed.
 5. Changed sources are decrypted, schema-validated, patched, encrypted, and
    decrypted again to prove an exact crypto round trip.
-6. Validated encrypted outputs are bind-mounted over the existing `/data`
-   profile files before Xiaomi starts `mi_thermald` on the Android `boot`
-   trigger.
+6. The complete validated output directory is bind-mounted over
+   `/data/vendor/thermal/config` before Xiaomi starts `mi_thermald` on the
+   Android `boot` trigger. This works whether Xiaomi's real directory is empty
+   or already populated.
 
 If generation or validation fails, no generated profiles are mounted. The OS
 therefore uses its current files unchanged. Bind mounts disappear on reboot,
 so disabling or removing the module restores the real files automatically.
 
-On a phone previously modified by v4.2, those real `/data` files may already
+On a phone previously modified by v4.2, the real `/data` files may already
 contain v4.2's permanent copies. This redesign never writes another restoration
 over them. It generates clean mounted profiles from immutable current sources;
 an OS/vendor reset of the writable thermal cache is the safe way to remove that
@@ -69,10 +71,10 @@ created directories.
 
 ## Publishing a release
 
-1. Replace the development version in `module.prop` with the intended release
-   tag, for example `version=v4.3`, and commit the change.
-2. Create and push the matching tag: `git tag v4.3` followed by
-   `git push origin v4.3`.
+1. Set `version=` in `module.prop` to the intended release tag, for example
+   `version=v4.3.1`, and commit the change.
+2. Create and push the matching tag: `git tag v4.3.1` followed by
+   `git push origin v4.3.1`.
 
 The release workflow builds a minimal Magisk-installable ZIP, verifies its
 contents, creates a SHA-256 checksum, and publishes both files in a GitHub
