@@ -1,0 +1,118 @@
+name: Build and publish release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Package Magisk module
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v6
+
+      - name: Validate release version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag="${GITHUB_REF_NAME}"
+          module_version="$(sed -n 's/^version=//p' module.prop)"
+
+          if [[ -z "${module_version}" ]]; then
+            echo "module.prop does not define version=" >&2
+            exit 1
+          fi
+          if [[ "${module_version}" != "${tag}" ]]; then
+            echo "Tag ${tag} does not match module.prop version ${module_version}." >&2
+            exit 1
+          fi
+          if [[ "${module_version}" == *-dev* ]]; then
+            echo "Development versions cannot be published as releases." >&2
+            exit 1
+          fi
+
+      - name: Build installable ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          package_dir="dist/package"
+          archive="dist/ChargeSpeedAdjuster-${GITHUB_REF_NAME}.zip"
+          mkdir -p "${package_dir}/META-INF/com/google/android"
+
+          install -m 0755 META-INF/com/google/android/update-binary \
+            "${package_dir}/META-INF/com/google/android/update-binary"
+          install -m 0644 META-INF/com/google/android/updater-script \
+            "${package_dir}/META-INF/com/google/android/updater-script"
+          install -m 0644 module.prop "${package_dir}/module.prop"
+          install -m 0755 \
+            customize.sh \
+            edit.sh \
+            miui-thermal \
+            patch-thermal.sh \
+            post-fs-data.sh \
+            uninstall.sh \
+            "${package_dir}/"
+
+          (
+            cd "${package_dir}"
+            zip -9 -r "${GITHUB_WORKSPACE}/${archive}" .
+          )
+
+          (
+            cd dist
+            sha256sum "ChargeSpeedAdjuster-${GITHUB_REF_NAME}.zip" \
+              > "ChargeSpeedAdjuster-${GITHUB_REF_NAME}.zip.sha256"
+          )
+
+      - name: Verify package contents
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          archive="dist/ChargeSpeedAdjuster-${GITHUB_REF_NAME}.zip"
+          unzip -t "${archive}"
+
+          for required in \
+            META-INF/com/google/android/update-binary \
+            META-INF/com/google/android/updater-script \
+            module.prop \
+            customize.sh \
+            edit.sh \
+            miui-thermal \
+            patch-thermal.sh \
+            post-fs-data.sh \
+            uninstall.sh; do
+            unzip -Z1 "${archive}" | grep -Fxq "${required}"
+          done
+
+          if unzip -Z1 "${archive}" | grep -Eq '(^|/)(\.git|runtime|tools|thermal-bat)(/|$)'; then
+            echo "The release ZIP contains a development or runtime path." >&2
+            exit 1
+          fi
+
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          archive="dist/ChargeSpeedAdjuster-${GITHUB_REF_NAME}.zip"
+          gh release create "${GITHUB_REF_NAME}" \
+            "${archive}#Magisk module" \
+            "${archive}.sha256#SHA-256 checksum" \
+            --verify-tag \
+            --generate-notes \
+            --title "ChargeSpeedAdjuster ${GITHUB_REF_NAME}"

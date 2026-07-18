@@ -66,3 +66,15 @@ GOOS=android GOARCH=arm64 CGO_ENABLED=0 \
 The converter uses the Xiaomi-compatible key and IV `thermalopenssl.h`, strict
 PKCS#7 padding validation, atomic output writes, and mode `0755` for newly
 created directories.
+
+## Publishing a release
+
+1. Replace the development version in `module.prop` with the intended release
+   tag, for example `version=v4.3`, and commit the change.
+2. Create and push the matching tag: `git tag v4.3` followed by
+   `git push origin v4.3`.
+
+The release workflow builds a minimal Magisk-installable ZIP, verifies its
+contents, creates a SHA-256 checksum, and publishes both files in a GitHub
+Release with generated release notes. A tag that does not exactly match
+`module.prop` is rejected.
