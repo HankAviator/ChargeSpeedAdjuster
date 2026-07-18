@@ -1,8 +1,8 @@
 #!/system/bin/sh
 
-# Schema-aware patcher for decrypted Xiaomi thermal configuration files.
-# Only threshold values in validated *-BAT sections are removed. All other
-# fields, including SIC proportion/target/ks values, are preserved.
+# Schema-aware compatibility patcher for decrypted Xiaomi thermal files.
+# It reproduces the transformations made by the v4.2 thermal-bat binary for
+# the two BAT schemas observed on supported Xiaomi stock profiles.
 
 set -u
 
@@ -27,8 +27,10 @@ function reset_section() {
     device_count = 0
     trig_count = 0
     clr_count = 0
+    proportion_count = 0
     trig_index = 0
     clr_index = 0
+    proportion_index = 0
 }
 
 function first_field(line, fields) {
@@ -57,22 +59,36 @@ function flush_section(    i, fields, field, algo, device, status) {
                 clr_count++
                 if (clr_index == 0)
                     clr_index = i
+            } else if (field == "proportion") {
+                proportion_count++
+                if (proportion_index == 0)
+                    proportion_index = i
             }
         }
 
         if (algo_count != 1 || device_count != 1 || trig_count < 1 || clr_count < 1 ||
             !((algo == "monitor" && device == "battery") ||
-              (algo == "sic" && device == "thermal_fcc_override"))) {
-            printf "%s|ERROR|%s|unknown BAT schema algo=%s device=%s trig=%d clr=%d\n",
-                filename, header, algo, device, trig_count, clr_count >> manifest
+              (algo == "sic" && device == "thermal_fcc_override" &&
+               proportion_count == 1))) {
+            printf "%s|ERROR|%s|unknown BAT schema algo=%s device=%s proportion=%d trig=%d clr=%d\n",
+                filename, header, algo, device, proportion_count, trig_count, clr_count >> manifest
             invalid = 1
-        } else {
-            # Preserve the field names but remove all threshold values. This is
-            # the intended effect of v4.2 without relying on relative lines.
+        } else if (algo == "monitor") {
+            # v4.2 clears both threshold lists in monitor/battery sections.
             section[trig_index] = "trig"
             section[clr_index] = "clr"
-            printf "%s|PATCHED|%s|algo=%s device=%s trig/clr thresholds removed\n",
-                filename, header, algo, device >> manifest
+            printf "%s|PATCHED|%s|v4.2 monitor compatibility: trig/clr cleared\n",
+                filename, header >> manifest
+            patched++
+        } else {
+            # v4.2 does not merely clear the SIC thresholds. It replaces the
+            # proportion line with an empty trig line, replaces the original
+            # trig line with an empty clr line, and leaves the populated clr
+            # line in place. Preserve that unusual layout deliberately.
+            section[proportion_index] = "trig"
+            section[trig_index] = "clr"
+            printf "%s|PATCHED|%s|v4.2 SIC compatibility: proportion/trig replaced; stock clr retained\n",
+                filename, header >> manifest
             patched++
         }
     }

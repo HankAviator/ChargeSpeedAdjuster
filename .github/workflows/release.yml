@@ -42,6 +42,12 @@ jobs:
             exit 1
           fi
 
+      - name: Test v4.2 compatibility patcher
+        shell: bash
+        run: |
+          set -euo pipefail
+          sh tests/test-v42-compat.sh
+
       - name: Build installable ZIP
         shell: bash
         run: |

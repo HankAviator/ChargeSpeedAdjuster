@@ -40,9 +40,19 @@ one of the known schemas:
 - `algo_type monitor` with `device battery`
 - `algo_type sic` with `device thermal_fcc_override`
 
-The first `trig` and `clr` threshold lists in a validated section are replaced
-with their field names without values. Other fields—including `proportion`,
-`target`, `ks`, `ki`, and `kc`—are preserved.
+The patcher deliberately reproduces the output of the v4.2 `thermal-bat`
+binary rather than only approximating its apparent intent:
+
+- In `monitor`/`battery` sections, the first `trig` and `clr` threshold lists
+  are replaced by empty `trig` and `clr` fields.
+- In `sic`/`thermal_fcc_override` sections, the `proportion` line becomes an
+  empty `trig` field, the original `trig` line becomes an empty `clr` field,
+  and the original populated `clr` line remains. Other fields are preserved.
+
+The second transformation is intentionally unusual. It matches v4.2
+byte-for-byte on the current stock profile corpus and may cause Xiaomi's
+thermal parser to ignore or ineffectively initialize that SIC controller.
+Unknown BAT schemas fail generation instead of being guessed.
 
 The generated audit files are stored under the module's `runtime` directory:
 
@@ -51,8 +61,9 @@ The generated audit files are stored under the module's `runtime` directory:
 - `patch-manifest.txt`: every patched or unchanged file and section
 - `generator.log`: generation and mount decisions
 
-The legacy `thermal-bat` binary is not used and is removed from the installed
-module during installation.
+The legacy `thermal-bat` binary is used only as a development reference. It is
+not run by the module and is removed from the installed module during
+installation.
 
 ## Converter
 
@@ -72,9 +83,9 @@ created directories.
 ## Publishing a release
 
 1. Set `version=` in `module.prop` to the intended release tag, for example
-   `version=v4.3.1`, and commit the change.
-2. Create and push the matching tag: `git tag v4.3.1` followed by
-   `git push origin v4.3.1`.
+   `version=v4.4`, and commit the change.
+2. Create and push the matching tag: `git tag v4.4` followed by
+   `git push origin v4.4`.
 
 The release workflow builds a minimal Magisk-installable ZIP, verifies its
 contents, creates a SHA-256 checksum, and publishes both files in a GitHub
