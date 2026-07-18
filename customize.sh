@@ -54,6 +54,8 @@ else
   # permission
   chmod a+x $MODPATH/miui-thermal
   chmod a+x $MODPATH/thermal-bat
-  sh $MODPATH/edit.sh >/dev/null 2>&1
+  if ! sh "$MODPATH/edit.sh"; then
+    abort "生成充电温控文件失败！"
+  fi
   echo "充电温控删除完毕，请重启！"
 fi
