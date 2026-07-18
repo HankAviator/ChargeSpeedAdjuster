@@ -3,59 +3,59 @@ REPLACE=""
 MODDIR=${0%/*}
 echo " "
 echo "*******************"
-echo "- 手机信息"
+echo "- Device information"
 echo "- SDK: $(getprop ro.build.version.sdk)"
-echo "- 设备: $(getprop ro.fota.oem)"
-echo "- 设备代号: $(getprop ro.product.device)"
-echo "- 安卓版本: Android $(getprop ro.build.version.release)"
+echo "- Manufacturer: $(getprop ro.fota.oem)"
+echo "- Device codename: $(getprop ro.product.device)"
+echo "- Android version: Android $(getprop ro.build.version.release)"
 echo "*******************"
 
-#检测是否读取到电流控制文件
+# Detect a supported charging-current control node.
 if [ ! -f /sys/class/power_supply/battery/constant_charge_current ] && [ ! -f /sys/class/power_supply/battery/constant_charge_current_max ] && [ ! -f /sys/class/power_supply/battery/fast_charge_current ];
 then
-  echo "目标文件未找到！可自行寻找电流文件，修改代码！"
+  echo "No supported charging-current control node was found."
+  echo "Find the correct node for this device and update the script manually."
 else
-  echo "找到电流控制文件！模块生效！（大概）"
+  echo "A supported charging-current control node was found."
 fi
 
-#清理旧模块
+# Remove obsolete module directories.
 rm -rf "/data/adb/modules/ChargeSA/"
 rm -rf "/data/adb/modules/HeZheng/"
 
-#检测是否读取到当前电量
+# Check whether the battery capacity node is available.
 if [ ! -f "/sys/class/power_supply/battery/capacity" ]; then
-  echo "阶梯充电功能失效！满血充电正常！"
+  echo "Step-based charging control is unavailable; unrestricted charging remains available."
 else
-  echo "阶梯充电功能生效！满血充电正常！"
+  echo "Step-based and unrestricted charging controls are available."
 fi
 sleep 1
-echo "！！！请仔细阅读以下说明！！！"
+echo "Please read the following information carefully."
 echo "-------------------------------------"
-echo "4.1版本更新如下："
-echo "亮屏息屏均生效！"
-echo "根据自己手机的温控文件生成只删除充电温控的温控！"
-echo "若未删除温控,则只删除充电温控！"
-echo "若已经删除温控,则不更改温控,只控制充电,但有可能会无法安装!"
-echo "若修改过但未删除温控,则有可能使修改过的温控失效!"
-echo "官改可能不生效!"
-echo "类原生估计也不行!"
-echo "尝试适配ksu!"
-echo "借鉴了很多大佬的代码,感谢!"
-echo "@鹤征(模块主要逻辑)@shadow3(修改温控思路)@嘟嘟斯基(解密温控)"
+echo "Version 4.2 information:"
+echo "Charging control is intended to work with the screen on or off."
+echo "Thermal profiles are generated from this device's own configuration."
+echo "Only charging-related thermal controls are removed."
+echo "Previously modified thermal profiles may be replaced by the generated profiles."
+echo "Vendor-modified ROMs may not be supported."
+echo "AOSP-like ROMs are probably not supported."
+echo "KernelSU support is experimental."
+echo "Thanks to everyone whose work contributed to this module."
+echo "@HeZheng (core logic), @shadow3 (thermal modification), @Dudusiji (thermal decryption)"
 echo "-------------------------------------"
 sleep 3
-#检测是否为小米手机
+# Restrict installation to Xiaomi devices.
 var_device="`getprop ro.fota.oem`"
 if [ "$var_device" != "Xiaomi" ]; then
-  abort "此模块只适用于小米设备！"
+  abort "This module supports Xiaomi devices only."
 else
-  echo "installing..."
+  echo "Installing..."
   sleep 1
-  # permission
+  # Make the bundled patching tools executable.
   chmod a+x $MODPATH/miui-thermal
   chmod a+x $MODPATH/thermal-bat
   if ! sh "$MODPATH/edit.sh"; then
-    abort "生成充电温控文件失败！"
+    abort "Failed to generate the charging thermal profiles."
   fi
-  echo "充电温控删除完毕，请重启！"
+  echo "Charging thermal controls were removed successfully. Reboot to apply the module."
 fi

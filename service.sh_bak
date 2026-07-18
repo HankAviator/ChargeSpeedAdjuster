@@ -1,12 +1,12 @@
 #!/system/bin/sh
-#充电控制目录
+# Charging control directory.
 sleep 1m
 BASEDIR="/sys/class/power_supply/battery"
-#温度文件
+# Battery temperature node.
 warm="$BASEDIR/temp"
-#电量文件
+# Battery capacity node.
 power="$BASEDIR/capacity"
-#权限
+# Prepare control-node permissions.
 chattr -i $BASEDIR/constant_charge_current
 chmod 777 $BASEDIR/constant_charge_current
 chattr -i $BASEDIR/constant_charge_current_max
@@ -19,10 +19,11 @@ chmod 777 $BASEDIR/input_suspend
 echo '0' > $BASEDIR/input_suspend
 chmod 666 /data/vendor/thermal/config
 
-#自行适配方式：
-#找到你的手机的降流电流文件，一般在/sys/class/power_supply/battery/下
-#替换下面两个constant_charge_current为你的降流电流文件名
-#或者加一条elif [ -e "$BASEDIR/你的降流电流文件名" ]; then Ccc="你的降流电流文件名"
+# Manual adaptation:
+# Find the charging-current limit node for the device. It is usually under
+# /sys/class/power_supply/battery. Replace the candidate node names below, or
+# add another branch such as:
+# elif [ -e "$BASEDIR/your_current_node" ]; then Ccc="your_current_node"
 if [ -e "$BASEDIR/constant_charge_current" ]; then
     Ccc="constant_charge_current"
 elif [ -e "$BASEDIR/constant_charge_current_max" ]; then
@@ -30,17 +31,18 @@ elif [ -e "$BASEDIR/constant_charge_current_max" ]; then
 elif [ -e "$BASEDIR/fast_charge_current" ]; then
     Ccc="fast_charge_current"
 fi
-#如要自行修改降流温度，请修改下面的数字，注意只修改前两位
-#并且修改后不一定会比原来充电快,同时开始不要低于停止
-#降流开始温度
+# Adjust the values below to change the temperature limits. Higher requested
+# current does not necessarily improve charging speed. The reduction threshold
+# must remain lower than the stop threshold.
+# Temperature where current reduction begins, in tenths of a degree Celsius.
 start=420
-#停止充电温度
+# Temperature where charging stops, in tenths of a degree Celsius.
 stop=480
-#涓流电量，这里填多少就是多少。当电量大于等于这个值时，开始涓流充电
+# Battery percentage where trickle charging begins.
 trickle=85
-#涓流电流，单位是微安，默认是2000毫安，只允许修改前四位
+# Trickle-charging current in microamps. The default is 2,000 mA.
 trickle_current=2000000
-#间隔，分六档，结束温度减去开始温度除以六，保留整数
+# Divide the range between the reduction and stop thresholds into six steps.
 interval=$((($stop-$start)/6))
 data=`[[ -f $warm ]] && cat $warm`
 data2=`[[ -f $power ]] && cat $power`
