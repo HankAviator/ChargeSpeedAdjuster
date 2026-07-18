@@ -1,0 +1,6 @@
+id=ChargeSA
+name=ChargeSpeedAdjuster
+version=v4.2
+versionCode=250406
+author=HankAviator, Misifu
+description=Delete charge thermal only and rewrite charging control
