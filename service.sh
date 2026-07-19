@@ -1,8 +1,8 @@
 #!/system/bin/sh
 
 # Verify Magisk's visible vendor overlay after magic mounts are established,
-# then keep wired thermal removal enabled while allowing the mapped wireless
-# monitor to apply Xiaomi's stock wireless mitigation states.
+# then keep Xiaomi's independent wired and wireless thermal-removal controls
+# enabled. The mapped wireless monitor still applies its mitigation states.
 
 MODDIR=${0%/*}
 GENERATED="$MODDIR/runtime/generated"
@@ -75,11 +75,11 @@ set_charge_control() {
 }
 
 if ! set_charge_control "$WIRED_REMOVE" wired 1 ||
-   ! set_charge_control "$WIRELESS_REMOVE" wireless 0; then
+   ! set_charge_control "$WIRELESS_REMOVE" wireless 1; then
     exit 1
 fi
 
-echo "ChargeSpeedAdjuster: verified wired removal and wireless profile control" >> "$CHARGE_LOG"
+echo "ChargeSpeedAdjuster: verified wired and wireless thermal removal" >> "$CHARGE_LOG"
 
 # Xiaomi resets these firmware properties when a charging path is detached or
 # reconfigured. Block on kernel uevents instead of polling or using a timer.

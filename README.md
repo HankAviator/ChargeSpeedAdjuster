@@ -91,8 +91,9 @@ fail generation instead of being guessed. CPU, GPU, modem, display, and
 emergency platform thermal controls are not modified.
 
 Xiaomi's charging firmware also exposes independent wired and wireless thermal
-votes outside the encrypted profiles. The module sets wired removal to `1`,
-but keeps wireless removal at `0` so the mapped wireless monitor can operate:
+votes outside the encrypted profiles. The module sets both removal controls to
+`1`; device testing shows that the mapped userspace wireless monitor continues
+to apply its `wlscharge_control_limit` states independently:
 
 ```text
 /sys/class/qcom-battery/thermal_remove
@@ -103,7 +104,7 @@ Xiaomi can reset these controls when a charging path is detached or
 reconfigured. The service blocks on kernel USB/wireless power-supply events;
 it has no periodic polling timer and holds no wakelock. On a relevant event it
 checks immediately, then after one and three seconds to catch a delayed reset,
-and restores wired to `1` and wireless to `0` only when needed. If the module is disabled, the
+and restores both controls to `1` only when needed. If the module is disabled, the
 event handler no longer reapplies the controls. Uninstall stops the listener
 and attempts to restore both controls immediately.
 

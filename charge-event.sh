@@ -40,7 +40,7 @@ apply_controls() {
         return 0
     fi
     set_control "$WIRED_REMOVE" wired 1
-    set_control "$WIRELESS_REMOVE" wireless 0
+    set_control "$WIRELESS_REMOVE" wireless 1
 }
 
 apply_controls
