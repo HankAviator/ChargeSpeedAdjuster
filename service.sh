@@ -1,7 +1,8 @@
 #!/system/bin/sh
 
 # Verify Magisk's visible vendor overlay after magic mounts are established,
-# then keep Xiaomi's independent wired and wireless thermal votes removed.
+# then keep wired thermal removal enabled while allowing the mapped wireless
+# monitor to apply Xiaomi's stock wireless mitigation states.
 
 MODDIR=${0%/*}
 GENERATED="$MODDIR/runtime/generated"
@@ -47,37 +48,38 @@ fi
 
 echo "ChargeSpeedAdjuster: verified $verified generated profiles at /vendor/etc" >> "$LOG"
 
-enable_charge_control() {
+set_charge_control() {
     control="$1"
     label="$2"
+    desired="$3"
 
     if [ ! -e "$control" ]; then
         echo "ChargeSpeedAdjuster: ERROR: missing $label control: $control" >> "$CHARGE_LOG"
         return 1
     fi
     value=$(cat "$control" 2>/dev/null)
-    [ "$value" = "1" ] && return 0
+    [ "$value" = "$desired" ] && return 0
     previous_value=$value
 
-    if ! echo 1 > "$control"; then
-        echo "ChargeSpeedAdjuster: ERROR: cannot enable $label thermal removal" >> "$CHARGE_LOG"
+    if ! echo "$desired" > "$control"; then
+        echo "ChargeSpeedAdjuster: ERROR: cannot set $label thermal removal=$desired" >> "$CHARGE_LOG"
         return 1
     fi
     value=$(cat "$control" 2>/dev/null)
-    if [ "$value" != "1" ]; then
-        echo "ChargeSpeedAdjuster: ERROR: $label thermal removal readback=$value" >> "$CHARGE_LOG"
+    if [ "$value" != "$desired" ]; then
+        echo "ChargeSpeedAdjuster: ERROR: $label thermal removal readback=$value expected=$desired" >> "$CHARGE_LOG"
         return 1
     fi
 
-    echo "ChargeSpeedAdjuster: enabled $label charging thermal removal (was $previous_value)" >> "$CHARGE_LOG"
+    echo "ChargeSpeedAdjuster: set $label charging thermal removal=$desired (was $previous_value)" >> "$CHARGE_LOG"
 }
 
-if ! enable_charge_control "$WIRED_REMOVE" wired ||
-   ! enable_charge_control "$WIRELESS_REMOVE" wireless; then
+if ! set_charge_control "$WIRED_REMOVE" wired 1 ||
+   ! set_charge_control "$WIRELESS_REMOVE" wireless 0; then
     exit 1
 fi
 
-echo "ChargeSpeedAdjuster: verified wired and wireless driver thermal removal" >> "$CHARGE_LOG"
+echo "ChargeSpeedAdjuster: verified wired removal and wireless profile control" >> "$CHARGE_LOG"
 
 # Xiaomi resets these firmware properties when a charging path is detached or
 # reconfigured. Block on kernel uevents instead of polling or using a timer.

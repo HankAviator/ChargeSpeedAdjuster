@@ -63,14 +63,27 @@ FCC/SIC controller with an explicit relaxed curve:
 | Virtual temperature band | Target | FCC range | Approx. battery power |
 | --- | --- | --- | --- |
 | Below 40 C | Unregulated by this profile | Up to 20.9 A | Up to 90 W |
-| 40-41.3 C | 40.5 C | 7.0-11.6 A | 30-50 W |
-| 41.3-44.5 C | 43.5 C | 4.65-9.3 A | 20-40 W |
+| 40-41.3 C | 40.5 C | 9.3-13.95 A | 40-60 W |
+| 41.3-43.5 C | 42.5 C | 6.98-11.63 A | 30-50 W |
+| 43.5-44.5 C | 44 C | 4.65-9.3 A | 20-40 W |
 | 44.5-47 C | 45 C | 3.5-8.14 A | 15-35 W |
 | 47 C and above | 47 C | 2.33-4.65 A | 10-20 W |
 
   Each transition clears 0.5 C below its trigger to avoid rapid band changes.
-- In `monitor`/`wireless_charge` sections, the `trig` and `clr` temperature
-  lists are cleared, removing the separate wireless charging profile wall.
+- In `monitor`/`wireless_charge` sections, stock mitigation states are mapped
+  to the FCC temperature bands:
+
+| Virtual temperature trigger | Wireless mitigation state |
+| --- | --- |
+| 40 C | 705 |
+| 41.3 C | 1008 |
+| 43.5 C | 1413 |
+| 44.5 C | 1515 |
+| 47 C | 1515 |
+
+  These packed firmware states are not watts. `1515` is the strongest state
+  observed in the current stock profiles, so FCC/SIC supplies the additional
+  battery-current reduction at 47 C and above.
 
 The temperatures used here come from Xiaomi's composite `VIRTUAL-SENSOR0`, not
 necessarily the battery temperature shown by Android. Unknown charging schemas
@@ -78,8 +91,8 @@ fail generation instead of being guessed. CPU, GPU, modem, display, and
 emergency platform thermal controls are not modified.
 
 Xiaomi's charging firmware also exposes independent wired and wireless thermal
-votes outside the encrypted profiles. The module sets these controls to `1`
-after boot and verifies both values:
+votes outside the encrypted profiles. The module sets wired removal to `1`,
+but keeps wireless removal at `0` so the mapped wireless monitor can operate:
 
 ```text
 /sys/class/qcom-battery/thermal_remove
@@ -90,7 +103,7 @@ Xiaomi can reset these controls when a charging path is detached or
 reconfigured. The service blocks on kernel USB/wireless power-supply events;
 it has no periodic polling timer and holds no wakelock. On a relevant event it
 checks immediately, then after one and three seconds to catch a delayed reset,
-and writes only when a value is no longer `1`. If the module is disabled, the
+and restores wired to `1` and wireless to `0` only when needed. If the module is disabled, the
 event handler no longer reapplies the controls. Uninstall stops the listener
 and attempts to restore both controls immediately.
 

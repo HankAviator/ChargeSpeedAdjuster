@@ -21,7 +21,7 @@ fi
 ui_print "- Installing the current-stock thermal profile generator"
 ui_print "- Stock and /data files will not be overwritten"
 ui_print "- Generated profiles will overlay /vendor/etc and mount over Xiaomi's /data cache"
-ui_print "- Battery, FCC, wireless-profile, and driver charging thermal limits will be removed"
+ui_print "- Battery limits are removed; FCC and wireless charging use relaxed mapped curves"
 ui_print "- An empty Xiaomi writable profile directory is supported"
 ui_print "- An OS/profile change will force regeneration from the new sources"
 

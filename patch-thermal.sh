@@ -2,8 +2,8 @@
 
 # Schema-aware charging thermal patcher for decrypted Xiaomi thermal files.
 # It retains v4.2 compatibility for the battery monitor, installs a relaxed
-# but bounded FCC/SIC curve, and disables Xiaomi's separate wireless-charge
-# temperature threshold controller.
+# but bounded FCC/SIC curve, and maps Xiaomi's separate wireless-charge
+# temperature controller to the same bands.
 
 set -u
 
@@ -127,25 +127,26 @@ function flush_section(    i, fields, field, algo, device, schema) {
             # Temperatures are millidegrees Celsius. FCC values are mA. The
             # clear points provide 0.5 C hysteresis below each upward trigger.
             section[proportion_index] = "proportion\t0"
-            section[trig_index] = "trig\t15000\t40000\t41300\t44500\t47000"
-            section[clr_index] = "clr\t14000\t39500\t40800\t44000\t46500"
-            section[target_index] = "target\t0\t40500\t43500\t45000\t47000"
-            section[ks_index] = "ks\t0\t6500000\t6500000\t6500000\t6500000"
-            section[ki_index] = "ki\t0\t100000\t100000\t100000\t100000"
-            section[kc_index] = "kc\t0\t0\t0\t0\t0"
-            section[max_index] = "max\t20900\t11600\t9300\t8140\t4650"
-            section[min_index] = "min\t20900\t7000\t4650\t3500\t2330"
+            section[trig_index] = "trig\t15000\t40000\t41300\t43500\t44500\t47000"
+            section[clr_index] = "clr\t14000\t39500\t40800\t43000\t44000\t46500"
+            section[target_index] = "target\t0\t40500\t42500\t44000\t45000\t47000"
+            section[ks_index] = "ks\t0\t6500000\t6500000\t6500000\t6500000\t6500000"
+            section[ki_index] = "ki\t0\t100000\t100000\t100000\t100000\t100000"
+            section[kc_index] = "kc\t0\t0\t0\t0\t0\t0"
+            section[max_index] = "max\t20900\t13950\t11630\t9300\t8140\t4650"
+            section[min_index] = "min\t20900\t9300\t6980\t4650\t3500\t2330"
             printf "%s|PATCHED|%s|relaxed bounded FCC/SIC curve installed\n",
                 filename, header >> manifest
             patched++
-        } else if (schema == "wireless-monitor" && trig_count >= 1 && clr_count >= 1 &&
-                   proportion_count == 0) {
-            # Wireless charging uses its own temperature-to-throttle monitor.
-            # Empty threshold lists disable that charging-specific controller
-            # while preserving unrelated platform thermal sections.
-            section[trig_index] = "trig"
-            section[clr_index] = "clr"
-            printf "%s|PATCHED|%s|wireless charging thermal thresholds cleared\n",
+        } else if (schema == "wireless-monitor" && trig_count == 1 && clr_count == 1 &&
+                   target_count == 1 && proportion_count == 0) {
+            # Packed stock mitigation states mapped to the FCC temperature
+            # bands. 1515 is the strongest state observed in stock; FCC/SIC
+            # remains the authoritative battery-side current limit.
+            section[trig_index] = "trig\t40000\t41300\t43500\t44500\t47000"
+            section[clr_index] = "clr\t39500\t40800\t43000\t44000\t46500"
+            section[target_index] = "target\t705\t1008\t1413\t1515\t1515"
+            printf "%s|PATCHED|%s|wireless charging thermal curve mapped to FCC bands\n",
                 filename, header >> manifest
             patched++
         } else {

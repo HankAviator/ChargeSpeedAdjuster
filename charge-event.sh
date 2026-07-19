@@ -18,16 +18,17 @@ restore_controls() {
     [ ! -e "$WIRELESS_REMOVE" ] || echo 0 > "$WIRELESS_REMOVE" 2>/dev/null
 }
 
-enable_control() {
+set_control() {
     control="$1"
     label="$2"
+    desired="$3"
     [ -e "$control" ] || return 0
 
     value=$(cat "$control" 2>/dev/null)
-    [ "$value" = "1" ] && return 0
-    if echo 1 > "$control" 2>/dev/null &&
-       [ "$(cat "$control" 2>/dev/null)" = "1" ]; then
-        echo "ChargeSpeedAdjuster: restored $label thermal removal after $POWER_SUPPLY_NAME uevent (was $value)" >> "$CHARGE_LOG"
+    [ "$value" = "$desired" ] && return 0
+    if echo "$desired" > "$control" 2>/dev/null &&
+       [ "$(cat "$control" 2>/dev/null)" = "$desired" ]; then
+        echo "ChargeSpeedAdjuster: restored $label thermal removal=$desired after $POWER_SUPPLY_NAME uevent (was $value)" >> "$CHARGE_LOG"
     else
         echo "ChargeSpeedAdjuster: ERROR: failed to restore $label thermal removal after $POWER_SUPPLY_NAME uevent" >> "$CHARGE_LOG"
     fi
@@ -38,8 +39,8 @@ apply_controls() {
         restore_controls
         return 0
     fi
-    enable_control "$WIRED_REMOVE" wired
-    enable_control "$WIRELESS_REMOVE" wireless
+    set_control "$WIRED_REMOVE" wired 1
+    set_control "$WIRELESS_REMOVE" wireless 0
 }
 
 apply_controls
