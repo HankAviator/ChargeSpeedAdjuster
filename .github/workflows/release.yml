@@ -63,6 +63,7 @@ jobs:
             "${package_dir}/META-INF/com/google/android/updater-script"
           install -m 0644 module.prop "${package_dir}/module.prop"
           install -m 0755 \
+            charge-event.sh \
             customize.sh \
             edit.sh \
             miui-thermal \
@@ -95,6 +96,7 @@ jobs:
             META-INF/com/google/android/update-binary \
             META-INF/com/google/android/updater-script \
             module.prop \
+            charge-event.sh \
             customize.sh \
             edit.sh \
             miui-thermal \

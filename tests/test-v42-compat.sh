@@ -14,6 +14,7 @@ sh "$ROOT/patch-thermal.sh" \
 
 cmp "$ROOT/tests/fixtures/v42-expected.conf" "$WORK/output.conf"
 grep -Fq 'v4.2 monitor compatibility: trig/clr cleared' "$WORK/manifest.txt"
-grep -Fq 'v4.2 SIC compatibility: proportion/trig replaced; stock clr retained' "$WORK/manifest.txt"
+grep -Fq 'relaxed bounded FCC/SIC curve installed' "$WORK/manifest.txt"
+grep -Fq 'wireless charging thermal thresholds cleared' "$WORK/manifest.txt"
 
-echo "v4.2 compatibility fixture passed"
+echo "charging thermal patch fixture passed"

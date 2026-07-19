@@ -25,6 +25,10 @@ directory.
    late read-only check verifies every generated file byte-for-byte at
    `/vendor/etc`. This works whether Xiaomi's real writable profile directory
    is empty or already populated.
+8. After the overlays are verified, `service.sh` enables Xiaomi's wired and
+   wireless driver thermal-removal controls, validates their readback, and
+   listens for charging-path events so it can reassert a value if Xiaomi
+   resets it.
 
 If generation or early vendor-backing refresh fails, the writable profile
 directory is not mounted. The late visible-overlay audit records any mismatch
@@ -40,25 +44,60 @@ pre-existing legacy state.
 
 ## Charging patch
 
-Only sections whose header ends in `-BAT]` are considered. A section must have
-one of the known schemas:
+Only charging-specific sections are considered. A section must have one of the
+known schemas:
 
 - `algo_type monitor` with `device battery`
 - `algo_type sic` with `device thermal_fcc_override`
+- `algo_type monitor` with `device wireless_charge`
 
-The patcher deliberately reproduces the output of the v4.2 `thermal-bat`
-binary rather than only approximating its apparent intent:
+The patcher retains v4.2 behavior where appropriate, but replaces its disabled
+FCC/SIC controller with an explicit relaxed curve:
 
 - In `monitor`/`battery` sections, the first `trig` and `clr` threshold lists
   are replaced by empty `trig` and `clr` fields.
-- In `sic`/`thermal_fcc_override` sections, the `proportion` line becomes an
-  empty `trig` field, the original `trig` line becomes an empty `clr` field,
-  and the original populated `clr` line remains. Other fields are preserved.
+- In `sic`/`thermal_fcc_override` sections, the stock controller is replaced
+  with the following battery-side current curve. Power figures use 4.3 V and
+  are approximate; input power and displayed charger power are different.
 
-The second transformation is intentionally unusual. It matches v4.2
-byte-for-byte on the current stock profile corpus and may cause Xiaomi's
-thermal parser to ignore or ineffectively initialize that SIC controller.
-Unknown BAT schemas fail generation instead of being guessed.
+| Virtual temperature band | Target | FCC range | Approx. battery power |
+| --- | --- | --- | --- |
+| Below 40 C | Unregulated by this profile | Up to 20.9 A | Up to 90 W |
+| 40-41.3 C | 40.5 C | 7.0-11.6 A | 30-50 W |
+| 41.3-44.5 C | 43.5 C | 4.65-9.3 A | 20-40 W |
+| 44.5-47 C | 45 C | 3.5-8.14 A | 15-35 W |
+| 47 C and above | 47 C | 2.33-4.65 A | 10-20 W |
+
+  Each transition clears 0.5 C below its trigger to avoid rapid band changes.
+- In `monitor`/`wireless_charge` sections, the `trig` and `clr` temperature
+  lists are cleared, removing the separate wireless charging profile wall.
+
+The temperatures used here come from Xiaomi's composite `VIRTUAL-SENSOR0`, not
+necessarily the battery temperature shown by Android. Unknown charging schemas
+fail generation instead of being guessed. CPU, GPU, modem, display, and
+emergency platform thermal controls are not modified.
+
+Xiaomi's charging firmware also exposes independent wired and wireless thermal
+votes outside the encrypted profiles. The module sets these controls to `1`
+after boot and verifies both values:
+
+```text
+/sys/class/qcom-battery/thermal_remove
+/sys/class/qcom-battery/wls_thermal_remove
+```
+
+Xiaomi can reset these controls when a charging path is detached or
+reconfigured. The service blocks on kernel USB/wireless power-supply events;
+it has no periodic polling timer and holds no wakelock. On a relevant event it
+checks immediately, then after one and three seconds to catch a delayed reset,
+and writes only when a value is no longer `1`. If the module is disabled, the
+event handler no longer reapplies the controls. Uninstall stops the listener
+and attempts to restore both controls immediately.
+
+`StepChgJeit` is separate from these controls. It is the battery firmware's
+temperature-, voltage-, and state-of-charge-dependent FCC/FV safety curve. The
+module does not set Xiaomi's distinct `remove_temp_limit` property, so JEITA
+recovery limits and emergency charging suspension remain available.
 
 The generated audit files are stored under the module's `runtime` directory:
 
@@ -67,6 +106,7 @@ The generated audit files are stored under the module's `runtime` directory:
 - `patch-manifest.txt`: every patched or unchanged file and section
 - `generator.log`: generation and mount decisions
 - `vendor-overlay.log`: late byte-for-byte verification of `/vendor/etc`
+- `charge-controls.log`: driver thermal-removal writes and readback validation
 
 The legacy `thermal-bat` binary is used only as a development reference. It is
 not run by the module and is removed from the installed module during
