@@ -145,7 +145,7 @@ function flush_section(    i, fields, field, algo, device, schema) {
             # remains the authoritative battery-side current limit.
             section[trig_index] = "trig\t40000\t41300\t43500\t44500\t47000"
             section[clr_index] = "clr\t39500\t40800\t43000\t44000\t46500"
-            section[target_index] = "target\t705\t1008\t1413\t1515\t1515"
+            section[target_index] = "target\t0\t705\t1008\t1413\t1515"
             printf "%s|PATCHED|%s|wireless charging thermal curve mapped to FCC bands\n",
                 filename, header >> manifest
             patched++

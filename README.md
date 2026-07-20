@@ -75,15 +75,17 @@ FCC/SIC controller with an explicit relaxed curve:
 
 | Virtual temperature trigger | Wireless mitigation state |
 | --- | --- |
-| 40 C | 705 |
-| 41.3 C | 1008 |
-| 43.5 C | 1413 |
-| 44.5 C | 1515 |
+| 40 C | 0 |
+| 41.3 C | 705 |
+| 43.5 C | 1008 |
+| 44.5 C | 1413 |
 | 47 C | 1515 |
 
-  These packed firmware states are not watts. `1515` is the strongest state
-  observed in the current stock profiles, so FCC/SIC supplies the additional
-  battery-current reduction at 47 C and above.
+  These packed firmware states are not watts. They are shifted one band later
+  than the original mapping based on live measurements: state 0 is the least
+  restrictive, 705/1008 held about 37 W, and 1413/1515 held about 32 W.
+  `1515` is the strongest state observed in the current stock profiles, so
+  FCC/SIC supplies the additional battery-current reduction at 47 C and above.
 
 The temperatures used here come from Xiaomi's composite `VIRTUAL-SENSOR0`, not
 necessarily the battery temperature shown by Android. Unknown charging schemas
