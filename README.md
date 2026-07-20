@@ -63,11 +63,11 @@ FCC/SIC controller with an explicit relaxed curve:
 | Virtual temperature band | Target | FCC range | Approx. battery power |
 | --- | --- | --- | --- |
 | Below 40 C | Unregulated by this profile | Up to 20.9 A | Up to 90 W |
-| 40-41.3 C | 40.5 C | 9.3-13.95 A | 40-60 W |
-| 41.3-43.5 C | 42.5 C | 6.98-11.63 A | 30-50 W |
-| 43.5-44.5 C | 44 C | 4.65-9.3 A | 20-40 W |
-| 44.5-47 C | 45 C | 3.5-8.14 A | 15-35 W |
-| 47 C and above | 47 C | 2.33-4.65 A | 10-20 W |
+| 40-41.3 C | 40.5 C | 9.3-16.28 A | 40-70 W |
+| 41.3-43.5 C | 42.5 C | 6.98-13.95 A | 30-60 W |
+| 43.5-44.5 C | 44 C | 4.65-11.63 A | 20-50 W |
+| 44.5-47 C | 45 C | 3.5-9.3 A | 15-40 W |
+| 47 C and above | 47 C | 2.33-6.98 A | 10-30 W |
 
   Each transition clears 0.5 C below its trigger to avoid rapid band changes.
 - In `monitor`/`wireless_charge` sections, stock mitigation states are mapped

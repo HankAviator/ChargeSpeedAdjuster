@@ -133,7 +133,7 @@ function flush_section(    i, fields, field, algo, device, schema) {
             section[ks_index] = "ks\t0\t6500000\t6500000\t6500000\t6500000\t6500000"
             section[ki_index] = "ki\t0\t100000\t100000\t100000\t100000\t100000"
             section[kc_index] = "kc\t0\t0\t0\t0\t0\t0"
-            section[max_index] = "max\t20900\t13950\t11630\t9300\t8140\t4650"
+            section[max_index] = "max\t20900\t16280\t13950\t11630\t9300\t6980"
             section[min_index] = "min\t20900\t9300\t6980\t4650\t3500\t2330"
             printf "%s|PATCHED|%s|relaxed bounded FCC/SIC curve installed\n",
                 filename, header >> manifest
