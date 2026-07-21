@@ -9,6 +9,7 @@ GENERATED="$MODDIR/runtime/generated"
 LOG="$MODDIR/runtime/vendor-overlay.log"
 CHARGE_LOG="$MODDIR/runtime/charge-controls.log"
 UEVENT_PID="$MODDIR/runtime/charge-uevent.pid"
+STATUS="$MODDIR/module-status.sh"
 VENDOR_CONFIG=/vendor/etc
 WIRED_REMOVE=/sys/class/qcom-battery/thermal_remove
 WIRELESS_REMOVE=/sys/class/qcom-battery/wls_thermal_remove
@@ -43,6 +44,7 @@ done
 
 if [ "$failed" -ne 0 ] || [ "$verified" -eq 0 ]; then
     echo "ChargeSpeedAdjuster: ERROR: vendor overlay verified=$verified failed=$failed" >> "$LOG"
+    sh "$STATUS" fail service "vendor overlay verification failed" || true
     exit 1
 fi
 
@@ -76,6 +78,7 @@ set_charge_control() {
 
 if ! set_charge_control "$WIRED_REMOVE" wired 1 ||
    ! set_charge_control "$WIRELESS_REMOVE" wireless 1; then
+    sh "$STATUS" fail service "charging thermal-removal control setup failed" || true
     exit 1
 fi
 
@@ -85,6 +88,13 @@ echo "ChargeSpeedAdjuster: verified wired and wireless thermal removal" >> "$CHA
 # reconfigured. Block on kernel uevents instead of polling or using a timer.
 if ! command -v busybox >/dev/null 2>&1; then
     echo "ChargeSpeedAdjuster: ERROR: BusyBox is required for charge uevents" >> "$CHARGE_LOG"
+    sh "$STATUS" fail service "BusyBox charging-event listener is unavailable" || true
+    exit 1
+fi
+
+if ! sh "$STATUS" pass event ||
+   ! sh "$STATUS" pass service; then
+    echo "ChargeSpeedAdjuster: ERROR: could not clear module inactive status" >> "$CHARGE_LOG"
     exit 1
 fi
 

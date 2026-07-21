@@ -37,6 +37,7 @@ rm -f "$MODPATH/thermal-bat"
 chmod 755 \
     "$MODPATH/charge-event.sh" \
     "$MODPATH/edit.sh" \
+    "$MODPATH/module-status.sh" \
     "$MODPATH/patch-thermal.sh" \
     "$MODPATH/post-fs-data.sh" \
     "$MODPATH/service.sh" \
@@ -50,4 +51,5 @@ if ! sh "$MODPATH/edit.sh" generate; then
 fi
 
 ui_print "- Profile generation, charging patch, vendor-overlay staging, and crypto validation succeeded"
+ui_print "- Runtime failures will mark the module description with [MODULE INACTIVE]"
 ui_print "- Reboot to apply the reversible vendor overlay and data-directory mount"

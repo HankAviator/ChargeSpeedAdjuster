@@ -7,6 +7,7 @@ MODDIR=${0%/*}
 CHARGE_LOG="$MODDIR/runtime/charge-controls.log"
 WIRED_REMOVE=/sys/class/qcom-battery/thermal_remove
 WIRELESS_REMOVE=/sys/class/qcom-battery/wls_thermal_remove
+STATUS="$MODDIR/module-status.sh"
 
 case "$SUBSYSTEM:$POWER_SUPPLY_NAME:$DEVPATH" in
     power_supply:usb:*|power_supply:wireless:*) ;;
@@ -22,7 +23,10 @@ set_control() {
     control="$1"
     label="$2"
     desired="$3"
-    [ -e "$control" ] || return 0
+    if [ ! -e "$control" ]; then
+        echo "ChargeSpeedAdjuster: ERROR: missing $label thermal-removal control" >> "$CHARGE_LOG"
+        return 1
+    fi
 
     value=$(cat "$control" 2>/dev/null)
     [ "$value" = "$desired" ] && return 0
@@ -31,7 +35,9 @@ set_control() {
         echo "ChargeSpeedAdjuster: restored $label thermal removal=$desired after $POWER_SUPPLY_NAME uevent (was $value)" >> "$CHARGE_LOG"
     else
         echo "ChargeSpeedAdjuster: ERROR: failed to restore $label thermal removal after $POWER_SUPPLY_NAME uevent" >> "$CHARGE_LOG"
+        return 1
     fi
+    return 0
 }
 
 apply_controls() {
@@ -39,8 +45,15 @@ apply_controls() {
         restore_controls
         return 0
     fi
-    set_control "$WIRED_REMOVE" wired 1
-    set_control "$WIRELESS_REMOVE" wireless 1
+    failed=0
+    set_control "$WIRED_REMOVE" wired 1 || failed=1
+    set_control "$WIRELESS_REMOVE" wireless 1 || failed=1
+    if [ "$failed" -ne 0 ]; then
+        sh "$STATUS" fail event "charging control restoration failed after $POWER_SUPPLY_NAME event" || true
+        return 1
+    fi
+    sh "$STATUS" pass event || true
+    return 0
 }
 
 apply_controls

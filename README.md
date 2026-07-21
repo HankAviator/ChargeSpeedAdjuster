@@ -124,6 +124,13 @@ The generated audit files are stored under the module's `runtime` directory:
 - `vendor-overlay.log`: late byte-for-byte verification of `/vendor/etc`
 - `charge-controls.log`: driver thermal-removal writes and readback validation
 
+If early profile generation/mounting, late vendor-overlay verification,
+charging-control setup, or event-time control restoration fails, the Magisk
+module description is prefixed with `[MODULE INACTIVE]`. Each boot stage owns
+its failure state, so a later successful stage cannot hide an unrelated
+failure. The marker is removed automatically after all recorded components
+recover.
+
 The legacy `thermal-bat` binary is used only as a development reference. It is
 not run by the module and is removed from the installed module during
 installation.

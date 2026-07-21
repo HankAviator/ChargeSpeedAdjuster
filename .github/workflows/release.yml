@@ -48,6 +48,12 @@ jobs:
           set -euo pipefail
           sh tests/test-v42-compat.sh
 
+      - name: Test module status marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          sh tests/test-module-status.sh
+
       - name: Build installable ZIP
         shell: bash
         run: |
@@ -67,6 +73,7 @@ jobs:
             customize.sh \
             edit.sh \
             miui-thermal \
+            module-status.sh \
             patch-thermal.sh \
             post-fs-data.sh \
             service.sh \
@@ -100,6 +107,7 @@ jobs:
             customize.sh \
             edit.sh \
             miui-thermal \
+            module-status.sh \
             patch-thermal.sh \
             post-fs-data.sh \
             service.sh \
