@@ -1,6 +1,6 @@
 id=ChargeSA
 name=ChargeSpeedAdjuster
-version=v4.9
-versionCode=260807
+version=v4.9.1
+versionCode=2608071
 author=HankAviator, Misifu
 description=Remove Xiaomi charging thermal limits with reversible current-stock overlays

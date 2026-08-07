@@ -50,7 +50,6 @@ apply_controls() {
     failed=0
     set_control "$WIRED_REMOVE" wired 1 || failed=1
     set_control "$WIRELESS_REMOVE" wireless 1 || failed=1
-    set_control "$TEMP_LIMIT_REMOVE" StepChgJeit 1 || failed=1
     if [ "$failed" -ne 0 ]; then
         sh "$STATUS" fail event "charging control restoration failed after $POWER_SUPPLY_NAME event" || true
         return 1

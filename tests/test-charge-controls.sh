@@ -20,7 +20,7 @@ export WIRED_REMOVE WIRELESS_REMOVE TEMP_LIMIT_REMOVE
 
 printf '0\n' > "$WIRED_REMOVE"
 printf '0\n' > "$WIRELESS_REMOVE"
-printf '0\n' > "$TEMP_LIMIT_REMOVE"
+printf '7\n' > "$TEMP_LIMIT_REMOVE"
 
 SUBSYSTEM=power_supply POWER_SUPPLY_NAME=usb DEVPATH=/devices/usb \
     sh "$WORK/charge-event.sh"
@@ -28,7 +28,7 @@ sleep 4
 
 [ "$(cat "$WIRED_REMOVE")" = 1 ]
 [ "$(cat "$WIRELESS_REMOVE")" = 1 ]
-[ "$(cat "$TEMP_LIMIT_REMOVE")" = 1 ]
+[ "$(cat "$TEMP_LIMIT_REMOVE")" = 7 ]
 
 touch "$WORK/disable"
 SUBSYSTEM=power_supply POWER_SUPPLY_NAME=usb DEVPATH=/devices/usb \

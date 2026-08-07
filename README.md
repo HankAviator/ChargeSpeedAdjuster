@@ -25,10 +25,9 @@ directory.
    late read-only check verifies every generated file byte-for-byte at
    `/vendor/etc`. This works whether Xiaomi's real writable profile directory
    is empty or already populated.
-8. After the overlays are verified, `service.sh` enables Xiaomi's wired,
-   wireless, and StepChgJeit thermal-removal controls, validates their
-   readback, and listens for charging-path events so it can reassert a value
-   if Xiaomi resets it.
+8. After the overlays are verified, `service.sh` enables Xiaomi's wired and
+   wireless thermal-removal controls, validates their readback, and listens
+   for charging-path events so it can reassert a value if Xiaomi resets it.
 
 If generation or early vendor-backing refresh fails, the writable profile
 directory is not mounted. The late visible-overlay audit records any mismatch
@@ -92,30 +91,32 @@ necessarily the battery temperature shown by Android. Unknown charging schemas
 fail generation instead of being guessed. CPU, GPU, modem, display, and
 emergency platform thermal controls are not modified.
 
-Xiaomi's charging firmware also exposes independent wired, wireless, and
-StepChgJeit thermal votes outside the encrypted profiles. The module sets all
-three removal controls to `1`; device testing shows that the mapped userspace
-wireless monitor continues to apply its `wlscharge_control_limit` states
-independently:
+Xiaomi's charging firmware also exposes independent wired and wireless thermal
+votes outside the encrypted profiles. The module sets both removal controls to
+`1`; device testing shows that the mapped userspace wireless monitor continues
+to apply its `wlscharge_control_limit` states independently:
 
 ```text
 /sys/class/qcom-battery/thermal_remove
 /sys/class/qcom-battery/wls_thermal_remove
-/sys/class/qcom-battery/remove_temp_limit
 ```
 
 Xiaomi can reset these controls when a charging path is detached or
 reconfigured. The service blocks on kernel USB/wireless power-supply events;
 it has no periodic polling timer and holds no wakelock. On a relevant event it
 checks immediately, then after one and three seconds to catch a delayed reset,
-and restores all three controls to `1` only when needed. If the module is
-disabled, the event handler no longer reapplies the controls. Uninstall stops
-the listener and attempts to restore all three controls to `0` immediately.
+and restores both controls to `1` only when needed. If the module is disabled,
+the event handler no longer reapplies the controls. Uninstall stops the
+listener and restores the controls to `0` immediately.
 
-Setting `remove_temp_limit=1` bypasses the battery firmware's `StepChgJeit`
-temperature-, voltage-, and state-of-charge-dependent FCC/FV curve. The
-bounded FCC/SIC curve and wireless mitigation states above remain active, and
-the module does not modify separate platform emergency thermal controls.
+`StepChgJeit` is the battery firmware's temperature-, voltage-, and
+state-of-charge-dependent FCC/FV curve. On the tested Xiaomi 14 (`houji`),
+writing `1` to `/sys/class/qcom-battery/remove_temp_limit` does not bypass that
+curve: it makes the reported battery temperature jump to 50 C and causes
+StepChgJeit to impose its hot-battery FCC/FV limits. The module therefore
+leaves this property at its default `0`; disabling or uninstalling the module
+also restores it to `0`. Separate platform emergency thermal controls remain
+untouched.
 
 The generated audit files are stored under the module's `runtime` directory:
 
