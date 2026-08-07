@@ -2,7 +2,8 @@
 
 # Verify Magisk's visible vendor overlay after magic mounts are established,
 # then keep Xiaomi's independent wired and wireless thermal-removal controls
-# enabled. The mapped wireless monitor still applies its mitigation states.
+# enabled. StepChgJeit is bypassed separately, while the mapped wireless
+# monitor still applies its mitigation states.
 
 MODDIR=${0%/*}
 GENERATED="$MODDIR/runtime/generated"
@@ -11,8 +12,9 @@ CHARGE_LOG="$MODDIR/runtime/charge-controls.log"
 UEVENT_PID="$MODDIR/runtime/charge-uevent.pid"
 STATUS="$MODDIR/module-status.sh"
 VENDOR_CONFIG=/vendor/etc
-WIRED_REMOVE=/sys/class/qcom-battery/thermal_remove
-WIRELESS_REMOVE=/sys/class/qcom-battery/wls_thermal_remove
+WIRED_REMOVE=${WIRED_REMOVE:-/sys/class/qcom-battery/thermal_remove}
+WIRELESS_REMOVE=${WIRELESS_REMOVE:-/sys/class/qcom-battery/wls_thermal_remove}
+TEMP_LIMIT_REMOVE=${TEMP_LIMIT_REMOVE:-/sys/class/qcom-battery/remove_temp_limit}
 
 : > "$LOG"
 : > "$CHARGE_LOG"
@@ -77,12 +79,13 @@ set_charge_control() {
 }
 
 if ! set_charge_control "$WIRED_REMOVE" wired 1 ||
-   ! set_charge_control "$WIRELESS_REMOVE" wireless 1; then
+   ! set_charge_control "$WIRELESS_REMOVE" wireless 1 ||
+   ! set_charge_control "$TEMP_LIMIT_REMOVE" StepChgJeit 1; then
     sh "$STATUS" fail service "charging thermal-removal control setup failed" || true
     exit 1
 fi
 
-echo "ChargeSpeedAdjuster: verified wired and wireless thermal removal" >> "$CHARGE_LOG"
+echo "ChargeSpeedAdjuster: verified wired, wireless, and StepChgJeit thermal removal" >> "$CHARGE_LOG"
 
 # Xiaomi resets these firmware properties when a charging path is detached or
 # reconfigured. Block on kernel uevents instead of polling or using a timer.

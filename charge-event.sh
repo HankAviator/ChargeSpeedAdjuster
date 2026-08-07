@@ -5,8 +5,9 @@
 
 MODDIR=${0%/*}
 CHARGE_LOG="$MODDIR/runtime/charge-controls.log"
-WIRED_REMOVE=/sys/class/qcom-battery/thermal_remove
-WIRELESS_REMOVE=/sys/class/qcom-battery/wls_thermal_remove
+WIRED_REMOVE=${WIRED_REMOVE:-/sys/class/qcom-battery/thermal_remove}
+WIRELESS_REMOVE=${WIRELESS_REMOVE:-/sys/class/qcom-battery/wls_thermal_remove}
+TEMP_LIMIT_REMOVE=${TEMP_LIMIT_REMOVE:-/sys/class/qcom-battery/remove_temp_limit}
 STATUS="$MODDIR/module-status.sh"
 
 case "$SUBSYSTEM:$POWER_SUPPLY_NAME:$DEVPATH" in
@@ -17,6 +18,7 @@ esac
 restore_controls() {
     [ ! -e "$WIRED_REMOVE" ] || echo 0 > "$WIRED_REMOVE" 2>/dev/null
     [ ! -e "$WIRELESS_REMOVE" ] || echo 0 > "$WIRELESS_REMOVE" 2>/dev/null
+    [ ! -e "$TEMP_LIMIT_REMOVE" ] || echo 0 > "$TEMP_LIMIT_REMOVE" 2>/dev/null
 }
 
 set_control() {
@@ -48,6 +50,7 @@ apply_controls() {
     failed=0
     set_control "$WIRED_REMOVE" wired 1 || failed=1
     set_control "$WIRELESS_REMOVE" wireless 1 || failed=1
+    set_control "$TEMP_LIMIT_REMOVE" StepChgJeit 1 || failed=1
     if [ "$failed" -ne 0 ]; then
         sh "$STATUS" fail event "charging control restoration failed after $POWER_SUPPLY_NAME event" || true
         return 1

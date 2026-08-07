@@ -17,7 +17,8 @@ if [ -f "$MODDIR/runtime/charge-uevent.pid" ]; then
 fi
 for control in \
     /sys/class/qcom-battery/thermal_remove \
-    /sys/class/qcom-battery/wls_thermal_remove; do
+    /sys/class/qcom-battery/wls_thermal_remove \
+    /sys/class/qcom-battery/remove_temp_limit; do
     [ ! -e "$control" ] || echo 0 > "$control" 2>/dev/null
 done
 echo "ChargeSpeedAdjuster: reboot to remove the thermal overlays and mounts."

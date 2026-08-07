@@ -54,6 +54,12 @@ jobs:
           set -euo pipefail
           sh tests/test-module-status.sh
 
+      - name: Test charging control restoration
+        shell: bash
+        run: |
+          set -euo pipefail
+          sh tests/test-charge-controls.sh
+
       - name: Build installable ZIP
         shell: bash
         run: |
